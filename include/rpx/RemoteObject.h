@@ -33,13 +33,12 @@ protected:
   registerRemote(identifier const &id, RET (CLASS::*func)(ARGS...));
 
   template <typename RET, typename... ARGS>
-  typename std::enable_if<std::is_same<RET, void>::value, void>::type
-  callRemote(identifier const &id, bool &success, ARGS... args);
+  typename std::enable_if<std::is_same<RET, void>::value, bool>::type
+  callRemote(identifier const &id, ARGS... args);
 
   template <typename RET, typename... ARGS>
-  typename std::enable_if<!std::is_same<RET, void>::value, RET>::type
-  callRemote(identifier const &id, bool &success, RET defaultValue,
-             ARGS... args);
+  typename std::enable_if<!std::is_same<RET, void>::value, std::tuple<RET,bool>>::type
+  callRemote(identifier const &id, RET const& defaultValue, ARGS... args);
 
 private:
   std::string m_id;
@@ -83,18 +82,17 @@ RemoteObject::registerRemote(identifier const &id,
 }
 
 template <typename RET, typename... ARGS>
-typename std::enable_if<std::is_same<RET, void>::value, void>::type
-RemoteObject::callRemote(identifier const &id, bool &success, ARGS... args) {
-  success = call(id, Utils::pack(std::tuple<ARGS...>(args...)));
+typename std::enable_if<std::is_same<RET, void>::value, bool>::type
+RemoteObject::callRemote(identifier const &id, ARGS... args) {
+  return call(id, Utils::pack(std::tuple<ARGS...>(args...)));
 }
 
 template <typename RET, typename... ARGS>
-typename std::enable_if<!std::is_same<RET, void>::value, RET>::type
-RemoteObject::callRemote(identifier const &id, bool &success, RET defaultValue,
-                         ARGS... args) {
+typename std::enable_if<!std::is_same<RET, void>::value, std::tuple<RET,bool>>::type
+RemoteObject::callRemote(identifier const &id, RET const& defaultValue, ARGS... args) {
   bytearray ret;
-  success = call(id, Utils::pack(std::tuple<ARGS...>(args...)), ret);
-  return ret.empty() ? defaultValue : Utils::unpack<RET>(ret);
+  bool success = call(id, Utils::pack(std::tuple<ARGS...>(args...)), ret);
+  return { (success ? Utils::unpack<RET>(ret) : defaultValue), success };
 }
 
 } // namespace rpx

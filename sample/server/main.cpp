@@ -16,8 +16,7 @@ public:
   float add(float f, float ff) { return f + ff; }
   std::string append(std::string s, std::string app) { return s + app; }
   void echo(){
-      bool success = false;
-      return callRemote<void>(__FUNCTION__, success);
+      bool success = callRemote<void>(__FUNCTION__);
       } 
 };
 

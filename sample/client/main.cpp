@@ -13,12 +13,12 @@ public:
 
   void echo(){ std::cout<<"Echo!"<<std::endl; } 
   float add(float f, float ff) {
-      bool success = false;
-      return callRemote<float>(__FUNCTION__, success, 0.f, f, ff);
+      auto [ret, success] = callRemote<float>(__FUNCTION__, 0.f, f, ff);
+      return ret;
   }
   std::string append(std::string s, std::string app) { 
-      bool success = false;
-      return callRemote<std::string>(__FUNCTION__, success, "default", s, app);
+      auto [ret, success] = callRemote<std::string>(__FUNCTION__, "default", s, app);
+      return ret;
       }
 };
 
