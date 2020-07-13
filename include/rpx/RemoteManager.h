@@ -59,7 +59,7 @@ private:
 
   RemoteManager();
 
-  std::multimap<std::string, RemoteObject *> m_objects;
+  std::map<std::string, RemoteObject *> m_objects;
   std::map<unsigned, Result *> m_results;
   mutable std::mutex m_muxResp;
   mutable std::recursive_mutex m_muxObj;

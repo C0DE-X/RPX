@@ -1,5 +1,6 @@
 #include <rpx/RemoteManager.h>
 #include <rpx/RemoteObject.h>
+#include <stdio.h>
 
 namespace rpx {
 
@@ -31,7 +32,9 @@ RemoteManager &RemoteManager::instance() {
 
 void RemoteManager::addRemote(RemoteObject *object) {
   std::lock_guard<std::recursive_mutex> guard(m_muxObj);
-  m_objects.insert({object->id(), object});
+  if(m_objects.find(object->id()) != m_objects.end())
+    std::cout<<"Warning: Registered object "<< object->id() << " gets overwritten"<<std::endl;
+  m_objects[object->id()] = object;
 }
 
 void RemoteManager::removeRemote(RemoteObject *object) {
@@ -91,10 +94,8 @@ void RemoteManager::recvRemote(bytearray const &buffer) {
     bytearray ret;
     m_muxObj.lock();
     auto obj = m_objects.find(rb.objID);
-    while (obj != m_objects.end() && obj->first == rb.objID) {
+    if(obj != m_objects.end())
       obj->second->recvRemote(rb.funcID, rb.args, ret);
-      ++obj;
-    }
     m_muxObj.unlock();
 
     rb.response = true;
