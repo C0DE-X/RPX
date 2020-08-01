@@ -1,8 +1,9 @@
- #include <iostream>
- #include <string>
+#include <iostream>
+#include <string>
 
- #include <rpx/RemoteManager.h>
- #include <rpx/RemoteObject.h>
+#include <rpx/RemoteManager.h>
+#include <rpx/RemoteObject.h>
+#include <rpx/TCPServer.h>
 
 class TestObject : public rpx::RemoteObject {
 public:
@@ -15,22 +16,21 @@ public:
 
   float add(float f, float ff) { return f + ff; }
   std::string append(std::string s, std::string app) { return s + app; }
-  void echo(){
-      bool success = callRemote<void>(__FUNCTION__);
-      } 
+  void echo() { bool success = callRemote<void>(__FUNCTION__); }
 };
 
-int main()
-{
-  rpx::RemoteManager::listen(12345);
-  std::cout<< "Remote server started" << std::endl;
+int main() {
+  rpx::communication::TCPServer server;
+  server.listen(12345);
+  rpx::RemoteManager::addCommunication(&server);
+  std::cout << "Remote server started" << std::endl;
   TestObject obj("fID");
 
   std::cin.get();
 
-  std::cout<<"Calling remote echo"<<std::endl;
+  std::cout << "Calling remote echo" << std::endl;
   obj.echo();
 
   std::cin.get();
   return EXIT_SUCCESS;
-}  
+}

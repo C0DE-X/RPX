@@ -1,4 +1,4 @@
-﻿#include <rpx/Client.h>
+﻿#include <rpx/TCPClient.h>
 
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -11,11 +11,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <iostream>
+#include <rpx/Utils.h>
 
 namespace rpx {
 
-namespace network {
+namespace communication {
 
 namespace client {
 
@@ -35,13 +35,13 @@ size_t _write(int __fd, const void *__buf, size_t __n) {
 
 } // namespace client
 
-Client::~Client() {
+TCPClient::~TCPClient() {
   close();
   if (m_recv_t.joinable())
     m_recv_t.join();
 }
 
-bool Client::connect(std::string addr, int port, AF_TYPE type) {
+bool TCPClient::connect(std::string addr, int port, AF_TYPE type) {
 
   // create socket
   if (type == AF_TYPE::AF_IPV4)
@@ -108,31 +108,24 @@ bool Client::connect(std::string addr, int port, AF_TYPE type) {
   return true;
 }
 
-void Client::close() { client::_close(m_sockfd); }
+void TCPClient::close() { client::_close(m_sockfd); }
 
-bool Client::send(const std::string &message) {
-  return write(message.c_str(), message.size());
-}
-
-bool Client::send(const std::vector<char> &message) {
+bool TCPClient::send(rpx::bytearray const &message) {
   return write(message.data(), message.size());
 }
 
-bool Client::send(const char *message, size_t length) {
-  return write(message, length);
-}
+void TCPClient::setOnRecv(RecvCallback const &cb) { m_rvCb = cb; }
 
-void Client::setOnRecv(const RecvCallback &cb) { m_rvCb = cb; }
-
-bool Client::write(const char *__buffer, size_t __buffersize) {
+bool TCPClient::write(const char *__buffer, size_t __buffersize) {
 
   if (m_sockfd < 0)
     return false;
 
   size_t totalBytes{0};
-  std::vector<char> buffer(__buffersize + OFFSET);
-  memcpy(buffer.data(), &__buffersize, OFFSET);
-  memcpy(buffer.data() + OFFSET, __buffer, __buffersize);
+  auto size = rpx::Utils::fromSize(__buffersize);
+  std::vector<char> buffer(__buffersize + size.size());
+  memcpy(buffer.data(), size.data(), size.size());
+  memcpy(buffer.data() + size.size(), __buffer, __buffersize);
 
   while (totalBytes < buffer.size()) {
     int sc = client::_write(m_sockfd, buffer.data() + totalBytes,
@@ -147,13 +140,14 @@ bool Client::write(const char *__buffer, size_t __buffersize) {
   return true;
 }
 
-bool Client::read() {
+bool TCPClient::read() {
 
   int rc = 0;
-  size_t msgSize = 0, totalBytes = 0;
+  size_t totalBytes = 0;
+  std::array<char, 8> sizeBuffer;
 
-  while (totalBytes < OFFSET) {
-    rc = recv(m_sockfd, reinterpret_cast<char *>(&msgSize), OFFSET, MSG_PEEK);
+  while (totalBytes < sizeBuffer.size()) {
+    rc = recv(m_sockfd, sizeBuffer.data(), sizeBuffer.size(), MSG_PEEK);
     if (rc <= 0) {
       if (errno != EWOULDBLOCK) {
         // perror("  recv() failed");
@@ -164,7 +158,7 @@ bool Client::read() {
     totalBytes += rc;
   }
 
-  msgSize += sizeof(size_t);
+  size_t msgSize = rpx::Utils::toSize(sizeBuffer) + sizeBuffer.size();
   std::vector<char> buffer(msgSize);
   totalBytes = 0;
 
@@ -182,7 +176,7 @@ bool Client::read() {
   }
 
   // remove OFFSET from
-  buffer.erase(buffer.begin(), buffer.begin() + OFFSET);
+  buffer.erase(buffer.begin(), buffer.begin() + sizeBuffer.size());
 
   if (m_rvCb)
     m_rvCb(buffer);
@@ -190,6 +184,6 @@ bool Client::read() {
   return true;
 }
 
-} // namespace network
+} // namespace communication
 
 } // namespace rpx

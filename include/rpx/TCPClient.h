@@ -1,33 +1,30 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#pragma once
 
 #include <functional>
+#include <rpx/ICommunication.h>
 #include <string>
 #include <thread>
 #include <vector>
 
 namespace rpx {
 
-namespace network {
+namespace communication {
 
-class Client {
-  static constexpr int OFFSET{sizeof(size_t)};
+class TCPClient : public ICommunication {
 
 public:
   using RecvCallback = std::function<void(std::vector<char> const &)>;
 
   enum AF_TYPE { AF_IPV4, AF_IPV6 };
 
-  Client() = default;
-  ~Client();
+  TCPClient() = default;
+  ~TCPClient();
 
   bool connect(std::string addr, int port, AF_TYPE type = AF_IPV6);
   void close();
 
-  bool send(std::string const &message);
-  bool send(std::vector<char> const &message);
-  bool send(const char *message, size_t length);
-  void setOnRecv(RecvCallback const &cb);
+  bool send(rpx::bytearray const &message) override;
+  void setOnRecv(RecvCallback const &cb) override;
 
 private:
   int m_sockfd{-1};
@@ -38,8 +35,6 @@ private:
   bool read();
 };
 
-} // namespace network
+} // namespace communication
 
 } // namespace rpx
-
-#endif // CLIENT_H

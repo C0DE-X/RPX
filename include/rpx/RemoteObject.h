@@ -1,5 +1,4 @@
-#ifndef REMOTEOBJECT_H
-#define REMOTEOBJECT_H
+#pragma once
 
 #include <functional>
 #include <iostream>
@@ -96,5 +95,3 @@ RemoteObject::callRemote(identifier const &id, RET const& defaultValue, ARGS... 
 }
 
 } // namespace rpx
-
-#endif // REMOTEOBJECT_H

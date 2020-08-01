@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.9)
 project(rpx-sample LANGUAGES CXX)
 
 include_directories(../include)
-link_directories(../lib)
+link_directories(../build/lib)
 
 
 add_executable(rpx-client

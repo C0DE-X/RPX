@@ -7,12 +7,13 @@ add_library(rpx SHARED
     include/rpx/Utils.h
     include/rpx/RemoteManager.h
     include/rpx/RemoteObject.h
-    include/rpx/Server.h
-    include/rpx/Client.h
+    include/rpx/ICommunication.h
+    include/rpx/TCPServer.h
+    include/rpx/TCPClient.h
     src/RemoteManager.cpp
     src/RemoteObject.cpp
-    src/Server.cpp
-    src/Client.cpp
+    src/TCPServer.cpp
+    src/TCPClient.cpp
 )
 
 set_target_properties(rpx PROPERTIES

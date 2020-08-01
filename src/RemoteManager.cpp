@@ -1,6 +1,7 @@
 #include <rpx/RemoteManager.h>
 #include <rpx/RemoteObject.h>
 #include <stdio.h>
+#include <thread>
 
 namespace rpx {
 
@@ -19,21 +20,27 @@ struct RemotePack {
   MSGPACK_DEFINE(objID, funcID, bufferID, response, args)
 };
 
-void RemoteManager::listen(int port) { instance().m_server.listen(port); }
-
-bool RemoteManager::connect(const std::string &ip, int port) {
-  return instance().m_client.connect(ip, port);
-}
-
 RemoteManager &RemoteManager::instance() {
   static RemoteManager rm;
   return rm;
 }
 
+void RemoteManager::addCommunication(ICommunication *com) {
+
+  if (com) {
+    RemoteManager &manager = instance();
+    com->setOnRecv([&manager = manager](bytearray const &buffer) {
+      manager.recvRemote(buffer);
+    });
+    manager.m_connections.push_back(com);
+  }
+}
+
 void RemoteManager::addRemote(RemoteObject *object) {
   std::lock_guard<std::recursive_mutex> guard(m_muxObj);
-  if(m_objects.find(object->id()) != m_objects.end())
-    std::cout<<"Warning: Registered object "<< object->id() << " gets overwritten"<<std::endl;
+  if (m_objects.find(object->id()) != m_objects.end())
+    std::cout << "Warning: Registered object " << object->id()
+              << " gets overwritten" << std::endl;
   m_objects[object->id()] = object;
 }
 
@@ -63,8 +70,8 @@ bool RemoteManager::callRemote(RemoteObject *object, const std::string &funcID,
 
   auto buffer = Utils::pack(rb);
 
-  m_server.send(buffer);
-  m_client.send(buffer);
+  for (auto &com : m_connections)
+    com->send(buffer);
 
   result.wait(DEFAULT_TIMEOUT);
 
@@ -72,14 +79,6 @@ bool RemoteManager::callRemote(RemoteObject *object, const std::string &funcID,
     ret = result.getValue();
 
   return result.isValid();
-}
-
-RemoteManager::RemoteManager() {
-
-  m_server.setOnRecv(
-      [this](bytearray const &buffer) { this->recvRemote(buffer); });
-  m_client.setOnRecv(
-      [this](bytearray const &buffer) { this->recvRemote(buffer); });
 }
 
 void RemoteManager::recvRemote(bytearray const &buffer) {
@@ -94,7 +93,7 @@ void RemoteManager::recvRemote(bytearray const &buffer) {
     bytearray ret;
     m_muxObj.lock();
     auto obj = m_objects.find(rb.objID);
-    if(obj != m_objects.end())
+    if (obj != m_objects.end())
       obj->second->recvRemote(rb.funcID, rb.args, ret);
     m_muxObj.unlock();
 
@@ -102,8 +101,8 @@ void RemoteManager::recvRemote(bytearray const &buffer) {
     rb.args = ret;
     auto buffer = Utils::pack(rb);
 
-    m_server.send(buffer);
-    m_client.send(buffer);
+    for (auto &com : m_connections)
+      com->send(buffer);
   }
 }
 

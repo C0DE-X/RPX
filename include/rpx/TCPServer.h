@@ -1,9 +1,9 @@
-#ifndef SERVER_H
-#define SERVER_H
+#pragma once
 
 #include <errno.h>
 #include <functional>
 #include <netinet/in.h>
+#include <rpx/ICommunication.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -16,24 +16,22 @@
 
 namespace rpx {
 
-namespace network {
+namespace communication {
 
-class Server {
+class TCPServer : public ICommunication {
   static constexpr int REQUESTMAX = 32;
-  static constexpr int OFFSET{sizeof(size_t)};
 
 public:
   using RecvCallback = std::function<void(std::vector<char> const &)>;
 
-  Server();
-  ~Server();
+  TCPServer();
+  ~TCPServer();
 
   bool listen(int port);
-  void send(std::string const &message);
-  void send(std::vector<char> const &message);
-  void send(const char *message, size_t length);
-  void setOnRecv(RecvCallback const &cb);
   void close();
+
+  bool send(rpx::bytearray const &message) override;
+  void setOnRecv(RecvCallback const &cb) override;
 
 private:
   int m_listenSd{-1};
@@ -46,8 +44,6 @@ private:
   void recv();
 };
 
-} // namespace network
+} // namespace communication
 
 } // namespace rpx
-
-#endif // SERVER_H
