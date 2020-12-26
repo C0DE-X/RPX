@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.9)
 
+option(BUILD_SAMPLE "Enable building samples" ON)
+
 project(rpx LANGUAGES CXX)
 
 add_library(rpx SHARED
@@ -28,3 +30,6 @@ target_include_directories(rpx PRIVATE src)
 target_include_directories(rpx PUBLIC include)
 target_link_libraries(rpx pthread)
     
+if(BUILD_SAMPLE)
+    add_subdirectory(sample)
+endif()
