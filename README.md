@@ -26,7 +26,7 @@ float testfunction(float f, float ff)
 Arg|Desc
 ---|:---
 RETURNTYPE| Type of return value
-FUCTIONNAME | Name of the function
+FUNCTIONNAME | Name of the function as string (_\_FUNCTION__ macro possible)
 DEFAULTRETURN | Default return value
 ARGS... | Arguments for function call
 
@@ -37,7 +37,7 @@ auto [ret, success] = callRemote<RETURNTYPE>(FUNCTIONNAME, DEFAULTRETURN, ARGS..
 void function
 Arg|Desc
 ---|:---
-FUCTIONNAME | Name of the function
+FUNCTIONNAME | Name of the function
 ARGS... | Arguments for function call
 ```cpp
 bool success = callRemote<void>(FUNCTIONNAME, ARGS...)
