@@ -1,6 +1,6 @@
 # RPX
 
-Remote process call framework using package libmsgpack-dev
+Remote process call framework using libmsgpack (serialization based on https://github.com/msgpack/msgpack-c/tree/cpp-3.3.0)
 
 ## Usage
 
