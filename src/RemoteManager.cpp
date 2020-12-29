@@ -1,6 +1,5 @@
 #include <rpx/RemoteManager.h>
 #include <rpx/RemoteObject.h>
-#include <stdio.h>
 #include <thread>
 
 namespace rpx {
@@ -8,14 +7,14 @@ namespace rpx {
 struct RemotePack {
   std::string objID;
   std::string funcID;
-  unsigned bufferID;
-  bool response;
+  unsigned bufferID {0};
+  bool response {false};
   bytearray args;
 
   RemotePack() = default;
-  RemotePack(std::string const &oID, std::string const &fID, int bufID,
-             bool res, bytearray const &a)
-      : objID(oID), funcID(fID), bufferID(bufID), response(res), args(a) {}
+  RemotePack(std::string oID, std::string fID, unsigned bufID,
+             bool res, bytearray a)
+      : objID(std::move(oID)), funcID(std::move(fID)), bufferID(bufID), response(res), args(std::move(a)) {}
   ~RemotePack() = default;
   MSGPACK_DEFINE(objID, funcID, bufferID, response, args)
 };
@@ -82,7 +81,7 @@ bool RemoteManager::callRemote(RemoteObject *object, const std::string &funcID,
 }
 
 void RemoteManager::recvRemote(bytearray const &buffer) {
-  RemotePack rb = Utils::unpack<RemotePack>(buffer);
+  auto rb = Utils::unpack<RemotePack>(buffer);
   if (rb.response) {
     std::lock_guard<std::mutex> guard(m_muxResp);
 
@@ -99,14 +98,14 @@ void RemoteManager::recvRemote(bytearray const &buffer) {
 
     rb.response = true;
     rb.args = ret;
-    auto buffer = Utils::pack(rb);
+    auto sbuffer = Utils::pack(rb);
 
     for (auto &com : m_connections)
-      com->send(buffer);
+      com->send(sbuffer);
   }
 }
 
-unsigned RemoteManager::uID() const {
+unsigned RemoteManager::uID() {
   static unsigned id = 0;
   return id++;
 }
@@ -131,7 +130,7 @@ void RemoteManager::Result::setValue(const bytearray &value) {
   m_valid = true;
 }
 
-void RemoteManager::Result::wait(int timeout_ms) {
+void RemoteManager::Result::wait(int timeout_ms) const {
   using stopwatch = std::chrono::steady_clock;
 
   auto start = stopwatch::now();

@@ -16,8 +16,8 @@ static constexpr bool isLittleEndian() {
 struct Utils {
 
   template <typename T = std::array<char, 2>>
-  static auto fromSize(unsigned long const& size) -> std::enable_if_t<!isLittleEndian(), T> {    
-    std::array<char, 8> ret;
+  static auto fromSize(unsigned long const& size) -> std::enable_if_t<!isLittleEndian(), T> {
+    std::array<char, 8> ret{};
     memcpy(ret.data(), &size, ret.size());
     return ret;
   }
@@ -31,7 +31,7 @@ struct Utils {
 
   template <typename T = std::array<char, 8>>
   static auto fromSize(unsigned short const& size) -> std::enable_if_t<isLittleEndian(), T> {    
-    std::array<char,8> ret;
+    std::array<char,8> ret{};
     memcpy(ret.data(), &size, 8);
     std::reverse(ret.begin(), ret.end());
     return ret;
@@ -66,12 +66,6 @@ struct Utils {
   static std::tuple<T, ARGS...> push_front(std::tuple<ARGS...> const &t,
                                            T const &v) {
     return std::tuple_cat(std::make_tuple(v), t);
-  }
-
-  template <typename T, typename... ARGS>
-  static std::tuple<T, ARGS...> push_back(std::tuple<ARGS...> const &t,
-                                          T const &v) {
-    return std::tuple_cat(t, std::make_tuple(v));
   }
 };
 

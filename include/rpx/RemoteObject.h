@@ -13,14 +13,14 @@ namespace rpx {
 
 class RemoteObject {
 public:
-  RemoteObject(identifier const &id);
+  explicit RemoteObject(identifier id);
   virtual ~RemoteObject();
 
   template <typename... ARGS>
   void recvRemote(identifier const &id, bytearray const &buffer,
                   bytearray &ret);
 
-  identifier id() const;
+  [[nodiscard]] identifier id() const;
 
 protected:
   template <class CLASS, typename RET, typename... ARGS>
@@ -89,7 +89,7 @@ RemoteObject::callRemote(identifier const &id, ARGS... args) {
 template <typename RET, typename... ARGS>
 typename std::enable_if<!std::is_same<RET, void>::value, std::tuple<RET,bool>>::type
 RemoteObject::callRemote(identifier const &id, RET const& defaultValue, ARGS... args) {
-  bytearray ret;
+  bytearray ret {};
   bool success = call(id, Utils::pack(std::tuple<ARGS...>(args...)), ret);
   return { (success ? Utils::unpack<RET>(ret) : defaultValue), success };
 }

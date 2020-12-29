@@ -41,10 +41,10 @@ private:
     Result(RemoteManager *manager, unsigned id);
     ~Result();
 
-    bool isValid() const;
+    [[nodiscard]] bool isValid() const;
     void setValue(bytearray const &value);
-    void wait(int timeout_ms);
-    bytearray getValue() const;
+    void wait(int timeout_ms) const;
+    [[nodiscard]] bytearray getValue() const;
 
   private:
     unsigned m_id{0};
@@ -62,7 +62,7 @@ private:
   mutable std::recursive_mutex m_muxObj;
 
   void recvRemote(const bytearray &buffer);
-  unsigned uID() const;
+  static unsigned uID() ;
 };
 
 } // namespace rpx

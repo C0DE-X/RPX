@@ -1,9 +1,11 @@
 #include <rpx/RemoteManager.h>
 #include <rpx/RemoteObject.h>
 
+#include <utility>
+
 namespace rpx {
 
-RemoteObject::RemoteObject(identifier const &id) : m_id(id) {
+RemoteObject::RemoteObject(identifier id) : m_id(std::move(id)) {
   RemoteManager::instance().addRemote(this);
 }
 

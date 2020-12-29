@@ -1,26 +1,18 @@
 ﻿#include <rpx/TCPClient.h>
-
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-
 #include <rpx/Utils.h>
 
-namespace rpx {
+#include <netdb.h>
+#include <csignal>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
-namespace communication {
+
+namespace rpx::communication {
 
 namespace client {
 
-int _connect(int __fd, __CONST_SOCKADDR_ARG __addr, socklen_t __len) {
-  return connect(__fd, __addr, __len);
+int _connect(int fd, __CONST_SOCKADDR_ARG addr, socklen_t len) {
+  return connect(fd, addr, len);
 }
 
 void _close(int sockfd) {
@@ -28,9 +20,9 @@ void _close(int sockfd) {
   close(sockfd);
 }
 
-size_t _write(int __fd, const void *__buf, size_t __n) {
+size_t _write(int fd, const void *buf, size_t n) {
   signal(SIGPIPE, SIG_IGN);
-  return write(__fd, __buf, __n);
+  return write(fd, buf, n);
 }
 
 } // namespace client
@@ -41,7 +33,7 @@ TCPClient::~TCPClient() {
     m_recv_t.join();
 }
 
-bool TCPClient::connect(std::string addr, int port, AF_TYPE type) {
+bool TCPClient::connect(const std::string& addr, int port, AF_TYPE type) {
 
   // create socket
   if (type == AF_TYPE::AF_IPV4)
@@ -65,12 +57,12 @@ bool TCPClient::connect(std::string addr, int port, AF_TYPE type) {
 
   // connect ipv4
   if (type == AF_TYPE::AF_IPV4) {
-    struct sockaddr_in serv_addr4;
+    struct sockaddr_in serv_addr4{};
     struct hostent *server;
 
     bzero((char *)&serv_addr4, sizeof(serv_addr4));
     server = gethostbyname(addr.c_str());
-    if (server == NULL) {
+    if (server == nullptr) {
       perror("ERROR, no such host\n");
       return false;
     }
@@ -87,7 +79,7 @@ bool TCPClient::connect(std::string addr, int port, AF_TYPE type) {
 
   // connect ipv6
   if (type == AF_TYPE::AF_IPV6) {
-    struct sockaddr_in6 serv_addr6;
+    struct sockaddr_in6 serv_addr6{};
 
     bzero((char *)&serv_addr6, sizeof(serv_addr6));
     serv_addr6.sin6_family = AF_INET6;
@@ -103,12 +95,11 @@ bool TCPClient::connect(std::string addr, int port, AF_TYPE type) {
   m_recv_t = std::thread([this]() {
     while (read())
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    ;
   });
   return true;
 }
 
-void TCPClient::close() { client::_close(m_sockfd); }
+void TCPClient::close() const { client::_close(m_sockfd); }
 
 bool TCPClient::send(rpx::bytearray const &message) {
   return write(message.data(), message.size());
@@ -116,16 +107,16 @@ bool TCPClient::send(rpx::bytearray const &message) {
 
 void TCPClient::setOnRecv(RecvCallback const &cb) { m_rvCb = cb; }
 
-bool TCPClient::write(const char *__buffer, size_t __buffersize) {
+bool TCPClient::write(const char *wbuffer, size_t wbuffersize) const {
 
   if (m_sockfd < 0)
     return false;
 
   size_t totalBytes{0};
-  auto size = rpx::Utils::fromSize(__buffersize);
-  std::vector<char> buffer(__buffersize + size.size());
+  auto size = rpx::Utils::fromSize(wbuffersize);
+  std::vector<char> buffer(wbuffersize + size.size());
   memcpy(buffer.data(), size.data(), size.size());
-  memcpy(buffer.data() + size.size(), __buffer, __buffersize);
+  memcpy(buffer.data() + size.size(), wbuffer, wbuffersize);
 
   while (totalBytes < buffer.size()) {
     int sc = client::_write(m_sockfd, buffer.data() + totalBytes,
@@ -142,9 +133,9 @@ bool TCPClient::write(const char *__buffer, size_t __buffersize) {
 
 bool TCPClient::read() {
 
-  int rc = 0;
+  int rc;
   size_t totalBytes = 0;
-  std::array<char, 8> sizeBuffer;
+  std::array<char, 8> sizeBuffer{};
 
   while (totalBytes < sizeBuffer.size()) {
     rc = recv(m_sockfd, sizeBuffer.data(), sizeBuffer.size(), MSG_PEEK);
@@ -184,6 +175,4 @@ bool TCPClient::read() {
   return true;
 }
 
-} // namespace communication
-
-} // namespace rpx
+} // namespace rpx::communication

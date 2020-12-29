@@ -6,9 +6,7 @@
 #include <thread>
 #include <vector>
 
-namespace rpx {
-
-namespace communication {
+namespace rpx::communication {
 
 class TCPClient : public ICommunication {
 
@@ -20,8 +18,8 @@ public:
   TCPClient() = default;
   ~TCPClient();
 
-  bool connect(std::string addr, int port, AF_TYPE type = AF_IPV6);
-  void close();
+  bool connect(const std::string& addr, int port, AF_TYPE type = AF_IPV6);
+  void close() const;
 
   bool send(rpx::bytearray const &message) override;
   void setOnRecv(RecvCallback const &cb) override;
@@ -31,10 +29,8 @@ private:
   std::thread m_recv_t;
   RecvCallback m_rvCb;
 
-  bool write(const char *__buffer, size_t __buffersize);
+  bool write(const char *wbuffer, size_t wbuffersize) const;
   bool read();
 };
 
-} // namespace communication
-
-} // namespace rpx
+} // namespace rpx::communication

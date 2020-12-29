@@ -1,31 +1,28 @@
-#include <errno.h>
-#include <netinet/in.h>
 #include <rpx/TCPServer.h>
 #include <rpx/Utils.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
+#include <cerrno>
+#include <netinet/in.h>
+#include <csignal>
+#include <cstdio>
+#include <cstring>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <unistd.h>
 
-namespace rpx {
-
-namespace communication {
+namespace rpx::communication {
 
 namespace server {
 
-int _listen(int __fd, int __n) { return listen(__fd, __n); }
+int _listen(int fd, int n) { return listen(fd, n); }
 
-size_t _write(int __fd, const void *__buf, size_t __n) {
+size_t _write(int fd, const void *buf, size_t n) {
   signal(SIGPIPE, SIG_IGN);
-  return write(__fd, __buf, __n);
+  return write(fd, buf, n);
 }
 
-ssize_t _recv(int __fd, void *__buf, size_t __n, int __flags) {
-  return recv(__fd, __buf, __n, __flags);
+ssize_t _recv(int fd, void *buf, size_t n, int flags) {
+  return recv(fd, buf, n, flags);
 }
 
 void _close(int sockfd) {
@@ -35,7 +32,7 @@ void _close(int sockfd) {
 
 } // namespace server
 
-TCPServer::TCPServer() {}
+TCPServer::TCPServer() = default;
 
 TCPServer::~TCPServer() {
   close();
@@ -45,7 +42,7 @@ TCPServer::~TCPServer() {
 
 bool TCPServer::listen(int port) {
   int rc, on = 1;
-  struct sockaddr_in6 addr;
+  struct sockaddr_in6 addr{};
 
   /*************************************************************/
   /* Create an AF_INET6 stream socket to receive incoming      */
@@ -126,14 +123,14 @@ bool TCPServer::send(rpx::bytearray const &message) {
 
 void TCPServer::setOnRecv(const TCPServer::RecvCallback &cb) { m_rvCb = cb; }
 
-void TCPServer::close() { server::_close(m_listenSd); }
+void TCPServer::close() const { server::_close(m_listenSd); }
 
-bool TCPServer::write(int sd, const char *__buffer, size_t __buffersize) {
+bool TCPServer::write(int sd, const char *wbuffer, size_t wbuffersize) {
   size_t totalBytes{0};
-  auto size = rpx::Utils::fromSize(__buffersize);
-  std::vector<char> buffer(__buffersize + size.size());
+  auto size = rpx::Utils::fromSize(wbuffersize);
+  std::vector<char> buffer(wbuffersize + size.size());
   memcpy(buffer.data(), size.data(), size.size());
-  memcpy(buffer.data() + size.size(), __buffer, __buffersize);
+  memcpy(buffer.data() + size.size(), wbuffer, wbuffersize);
 
   while (totalBytes < buffer.size()) {
     int sc = server::_write(sd, buffer.data() + totalBytes,
@@ -150,15 +147,14 @@ bool TCPServer::write(int sd, const char *__buffer, size_t __buffersize) {
 
 int TCPServer::read(int sockfd, bool &err) {
 
-  int rc = 0;
+  int rc;
   size_t totalBytes = 0;
-  std::array<char, 8> sizeBuffer;
+  std::array<char, 8> sizeBuffer{};
 
   while (totalBytes < sizeBuffer.size()) {
     rc = server::_recv(sockfd, sizeBuffer.data(), sizeBuffer.size(), MSG_PEEK);
     if (rc <= 0) {
       if (errno != EWOULDBLOCK) {
-        // perror("  recv() failed");
         err = true;
       }
       return rc;
@@ -194,7 +190,7 @@ int TCPServer::read(int sockfd, bool &err) {
 
 void TCPServer::recv() {
   int rc;
-  int new_sd = -1;
+  int new_sd;
   int end_server = false;
   bool close_conn;
 
@@ -262,7 +258,7 @@ void TCPServer::recv() {
           /* failure on accept will cause us to end the        */
           /* server.                                           */
           /*****************************************************/
-          new_sd = accept(m_listenSd, NULL, NULL);
+          new_sd = accept(m_listenSd, nullptr, nullptr);
           if (new_sd < 0) {
             if (errno != EWOULDBLOCK) {
               perror("  accept() failed");
@@ -346,6 +342,4 @@ void TCPServer::recv() {
   m_fds.clear();
 }
 
-} // namespace communication
-
-} // namespace rpx
+} // namespace rpx::communication

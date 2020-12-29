@@ -1,22 +1,11 @@
 #pragma once
 
-#include <errno.h>
 #include <functional>
-#include <netinet/in.h>
 #include <rpx/ICommunication.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string>
-#include <sys/ioctl.h>
-#include <sys/poll.h>
-#include <sys/socket.h>
-#include <sys/time.h>
+#include <poll.h>
 #include <thread>
-#include <vector>
 
-namespace rpx {
-
-namespace communication {
+namespace rpx::communication {
 
 class TCPServer : public ICommunication {
   static constexpr int REQUESTMAX = 32;
@@ -28,7 +17,7 @@ public:
   ~TCPServer();
 
   bool listen(int port);
-  void close();
+  void close() const;
 
   bool send(rpx::bytearray const &message) override;
   void setOnRecv(RecvCallback const &cb) override;
@@ -39,11 +28,9 @@ private:
   RecvCallback m_rvCb;
   std::vector<pollfd> m_fds;
 
-  bool write(int sd, const char *__buffer, size_t __buffersize);
+  static bool write(int sd, const char *wbuffer, size_t wbuffersize);
   int read(int sockfd, bool &err);
   void recv();
 };
 
-} // namespace communication
-
-} // namespace rpx
+} // namespace rpx::communication
