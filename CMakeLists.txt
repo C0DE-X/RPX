@@ -12,10 +12,14 @@ add_library(rpx SHARED
     include/rpx/ICommunication.h
     include/rpx/TCPServer.h
     include/rpx/TCPClient.h
+    include/rpx/Pipe.h
+    include/rpx/PipeNode.h
     src/RemoteManager.cpp
     src/RemoteObject.cpp
     src/TCPServer.cpp
     src/TCPClient.cpp
+    src/PipeNode.cpp
+    src/Pipe.cpp
 )
 
 set_target_properties(rpx PROPERTIES

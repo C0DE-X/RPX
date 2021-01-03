@@ -4,6 +4,7 @@
 #include <rpx/RemoteManager.h>
 #include <rpx/RemoteObject.h>
 #include <rpx/TCPServer.h>
+#include <rpx/PipeNode.h>
 
 class TestObject : public rpx::RemoteObject {
 public:
@@ -20,9 +21,12 @@ public:
 };
 
 int main() {
-  rpx::communication::TCPServer server;
+  /*rpx::communication::TCPServer server;
   server.listen(12345);
-  rpx::RemoteManager::addCommunication(&server);
+  rpx::RemoteManager::addCommunication(&server);*/
+
+  rpx::communication::PipeNode node("/tmp/rpx0");
+  rpx::RemoteManager::addCommunication(&node);
   std::cout << "Remote server started" << std::endl;
   TestObject obj("fID");
 
