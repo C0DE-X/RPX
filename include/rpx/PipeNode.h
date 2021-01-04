@@ -32,7 +32,7 @@ private:
   rpx::bytearray const m_msghead;
 
   void receive_t();
-  void acceptConnect(std::vector<char> const&buffer);
+  void acceptConnect(rpx::bytearray const& buffer);
   rpx::bytearray read();
   bool write(rpx::byte type, rpx::bytearray const& bytes);
 

@@ -84,10 +84,10 @@ bool PipeNode::connectTo(const std::string &path) {
 }
 rpx::bytearray PipeNode::createMsgHead(const std::string &path) {
   rpx::bytearray buffer;
-  size_t pathLength = path.length();
-  buffer.resize(sizeof(std::byte) + 3 * LONG_SIZE + sizeof(pathLength) + pathLength);
+  unsigned long pathLength = path.length();
+  buffer.resize(sizeof(std::byte) + 4 * LONG_SIZE + pathLength);
   char *iter = buffer.data() + BYTE_SIZE + 3 * LONG_SIZE;
-  memcpy(iter, &pathLength, sizeof(pathLength));
+  Utils::fromArithmetic(pathLength, iter);
   iter += sizeof(pathLength);
   memcpy(iter, path.c_str(), pathLength);
   return buffer;
@@ -110,10 +110,10 @@ rpx::bytearray PipeNode::read() {
 bool PipeNode::write(rpx::byte type, const bytearray &bytes) {
   std::vector<char> buffer = m_msghead;
   size_t chunkSize = Pipe::MAX_MSGSIZE - m_msghead.size();
-  int chunkCount = ceil((bytes.size() * 1.0) / chunkSize);
+  unsigned long chunkCount = ceil((bytes.size() * 1.0) / chunkSize);
   const char *chunkBegin = bytes.data();
   buffer[LONG_SIZE] = type;
-  memcpy(buffer.data() + BYTE_SIZE + 2 * LONG_SIZE, &chunkCount, sizeof(chunkCount));
+  Utils::fromArithmetic(chunkCount, buffer.data() + BYTE_SIZE + 2 * LONG_SIZE);
 
   std::lock_guard<std::mutex> guard(m_lock);
   for (unsigned long i = 0; i < chunkCount; ++i) {
@@ -121,9 +121,8 @@ bool PipeNode::write(rpx::byte type, const bytearray &bytes) {
     if (chunkLength > chunkSize)
       chunkLength = chunkSize;
     buffer.resize(m_msghead.size() + chunkLength);
-    auto bufferSize = Utils::fromSize(m_msghead.size() + chunkLength);
-    memcpy(buffer.data(), bufferSize.data(), bufferSize.size());
-    memcpy(buffer.data() + BYTE_SIZE + LONG_SIZE, &i, LONG_SIZE);
+    Utils::fromArithmetic(m_msghead.size() + chunkLength, buffer.data());
+    Utils::fromArithmetic(i, buffer.data() + BYTE_SIZE + LONG_SIZE);
     memcpy(buffer.data() + m_msghead.size(), chunkBegin, chunkLength);
     chunkBegin += chunkLength;
     for (auto iter = m_pipes.begin(); iter != m_pipes.end();)
@@ -137,7 +136,7 @@ bool PipeNode::write(rpx::byte type, const bytearray &bytes) {
   }
   return true;
 }
-void PipeNode::acceptConnect(std::vector<char> const&buffer) {
+void PipeNode::acceptConnect(rpx::bytearray const& buffer) {
   std::string path(buffer.begin() + 1, buffer.end());
   if (!path.empty()) {
     std::lock_guard<std::mutex> guard(m_lock);
@@ -153,18 +152,15 @@ void PipeNode::acceptConnect(std::vector<char> const&buffer) {
 }
 bool PipeNode::acceptMessage(std::vector<char> &buffer,
                              std::map<std::string, std::vector<std::vector<char>>> &msgqueue) {
-  unsigned long index = 0, count = 0;
-  size_t pathLength = 0;
   auto byteIter = buffer.begin() + BYTE_SIZE;
-  memcpy(&index, &*byteIter, sizeof(index));
+  auto index = Utils::toArithmetic<unsigned long>(&*byteIter);
   byteIter += LONG_SIZE;
-  memcpy(&count, &*byteIter, sizeof(count));
+  auto count = Utils::toArithmetic<unsigned long>(&*byteIter);
   byteIter += LONG_SIZE;
-  memcpy(&pathLength, &*byteIter, sizeof(pathLength));
+  auto pathLength = Utils::toArithmetic<size_t>(&*byteIter);
   byteIter += LONG_SIZE;
   std::string pipepath(byteIter, byteIter + pathLength);
-  byteIter += pathLength;
-  buffer.erase(buffer.begin(), byteIter);
+  buffer.erase(buffer.begin(), byteIter + pathLength);
   if (count == 1) {
     return true;
   } else if (count > 1) {
