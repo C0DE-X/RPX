@@ -1,4 +1,5 @@
-#include "rpx/Pipe.h"
+#include "Pipe.h"
+#include "rpx/Utils.h"
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -54,43 +55,23 @@ Pipe &Pipe::operator=(Pipe &&other) noexcept {
   m_fifoHandle = pipe_open(m_path);
   return *this;
 }
-std::vector<char> Pipe::read(bool blocking) const {
-  std::vector<char> buffer;
-  int bytes = 0, num;
-
-  while (m_fifoHandle >= 0) {
-    num = pipe_read(m_fifoHandle, &bytes, sizeof(bytes));
-    if (num < 0) {
-      if (blocking) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        continue;
-      }
-      return buffer;
-    }
-    buffer.resize(bytes);
-    break;
-  }
-
-  while (bytes > 0) {
-    num = pipe_read(m_fifoHandle, buffer.data() + (buffer.size() - bytes), bytes);
+std::vector<char> Pipe::read(size_t count) const {
+  std::vector<char> buffer(count);
+  int num;
+  while (count > 0) {
+    num = pipe_read(m_fifoHandle, buffer.data() + (buffer.size() - count), count);
     if (num < 0 || m_fifoHandle < 0) {
       buffer.clear();
       return buffer;
     }
-    bytes -= num;
+    count -= num;
   }
   return buffer;
 }
 bool Pipe::write(std::vector<char> const &bytes) const {
-
   int num, byteCount = bytes.size();
-  std::vector<char> buffer(sizeof(int) + byteCount);
-  memcpy(buffer.data(), &byteCount, sizeof(byteCount));
-  memcpy(buffer.data() + sizeof(byteCount), bytes.data(), byteCount);
-  byteCount = buffer.size();
-
   while (byteCount > 0) {
-    if ((num = pipe_write(m_fifoHandle, buffer.data() + (buffer.size() - byteCount), byteCount)) < 0) {
+    if ((num = pipe_write(m_fifoHandle, bytes.data() + (bytes.size() - byteCount), byteCount)) < 0) {
       return false;
     }
     byteCount -= num;

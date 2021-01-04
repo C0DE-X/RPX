@@ -15,34 +15,74 @@ static constexpr bool isLittleEndian() {
 
 struct Utils {
 
-  template <typename T = std::array<char, 2>>
+  template <typename T = std::array<char, LONG_SIZE>>
   static auto fromSize(unsigned long const& size) -> std::enable_if_t<!isLittleEndian(), T> {
-    std::array<char, 8> ret{};
+    std::array<char, LONG_SIZE> ret{};
     memcpy(ret.data(), &size, ret.size());
     return ret;
   }
 
   template <typename T = unsigned long>
-  static auto toSize(std::array<char,8> const& buffer) -> std::enable_if_t<!isLittleEndian(), T> {    
+  static auto toSize(std::array<char,LONG_SIZE> const& buffer) -> std::enable_if_t<!isLittleEndian(), T> {
     unsigned long ret;
-    memcpy(&ret, buffer.data(), 8);
+    memcpy(&ret, buffer.data(), LONG_SIZE);
+    return ret;
+  }
+  template <typename T = unsigned long>
+  static auto toSize(std::vector<char> const& buffer) -> std::enable_if_t<!isLittleEndian(), T> {
+    unsigned long ret;
+    if(buffer.size() >= LONG_SIZE)
+    {
+      std::array<char,LONG_SIZE> tmp{};
+      std::copy(buffer.begin(), buffer.begin() + LONG_SIZE, tmp.begin());
+      return toSize(tmp);
+    }
     return ret;
   }
 
-  template <typename T = std::array<char, 8>>
-  static auto fromSize(unsigned short const& size) -> std::enable_if_t<isLittleEndian(), T> {    
-    std::array<char,8> ret{};
-    memcpy(ret.data(), &size, 8);
+  template <typename T>
+  static auto toArithmetic(const char *buffer) -> std::enable_if_t<!isLittleEndian() && std::is_arithmetic_v<T>, T> {
+    T ret;
+    memcpy(&ret, buffer, sizeof(T));
+    return ret;
+  }
+
+  template <typename T = std::array<char, LONG_SIZE>>
+  static auto fromSize(unsigned long const& size) -> std::enable_if_t<isLittleEndian(), T> {
+    std::array<char,LONG_SIZE> ret{};
+    memcpy(ret.data(), &size, LONG_SIZE);
     std::reverse(ret.begin(), ret.end());
     return ret;
   }
 
   template <typename T = unsigned short>
-  static auto toSize(std::array<char,8> const& buffer) -> std::enable_if_t<isLittleEndian(), T> {    
+  static auto toSize(std::array<char,LONG_SIZE> const& buffer) -> std::enable_if_t<isLittleEndian(), T> {
     unsigned long ret;
     auto tmp = buffer;
     std::reverse(tmp.begin(), tmp.end());
-    memcpy(&ret, tmp.data(), 8);
+    memcpy(&ret, tmp.data(), LONG_SIZE);
+    return ret;
+  }
+
+  template <typename T = unsigned short>
+  static auto toSize(std::vector<char> const& buffer) -> std::enable_if_t<isLittleEndian(), T> {
+    unsigned long ret;
+    if(buffer.size() >= LONG_SIZE)
+    {
+      std::array<char,LONG_SIZE> tmp{};
+      std::copy(buffer.begin(), buffer.begin() + LONG_SIZE, tmp.begin());
+      return toSize(tmp);
+    }
+    return ret;
+  }
+
+  template <typename T>
+  static auto toArithmetic(const char *buffer) -> std::enable_if_t<isLittleEndian() && std::is_arithmetic_v<T>, T> {
+    T ret;
+    std::array<char, sizeof(T)> tmp;
+    memcpy(tmp.data(), buffer, sizeof(T));
+    std::reverse(tmp.begin(), tmp.end());
+    memcpy(&ret, tmp.data(), sizeof(T));
     return ret;
   }
 

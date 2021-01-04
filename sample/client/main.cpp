@@ -41,7 +41,7 @@ int main() {
   std::cout << "Calling add -> " << f << " + " << ff << " = "
             << obj.add(3.5f, 4.8f) << std::endl;
   std::string s = "Hello ", app = "World";
-  std::cout << "Calling append -> " << s << " and " << app << " = "
+  std::cout << "Calling append -> " << s << "and " << app << " = "
             << obj.append(s, app) << std::endl;
 
   std::cin.get();

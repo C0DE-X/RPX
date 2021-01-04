@@ -1,7 +1,8 @@
 #include "rpx/PipeNode.h"
+#include "Pipe.h"
+#include "rpx/Utils.h"
 #include <cstring>
 #include <queue>
-#include <iostream>
 #include <cmath>
 
 namespace rpx::communication {
@@ -11,30 +12,31 @@ enum MSGTYPE {
   CONNECT = 0,
   MSG
 };
-
 }
 
 PipeNode::PipeNode(std::string const &path)
-    : m_pipe(path), m_framebuffer(createFramebuffer(path)) {
-  m_reader = new std::thread(&PipeNode::read_t, this);
+    : m_pipe(new Pipe(path)), m_msghead(createMsgHead(path)) {
+  m_reader = new std::thread(&PipeNode::receive_t, this);
 }
 PipeNode::~PipeNode() {
-  m_pipe.close();
+  m_pipe->close();
   m_reader->join();
+  for (auto p : m_pipes) {
+    p->close();
+    delete p;
+  }
   delete m_reader;
-  for (auto &p : m_pipes)
-    p.close();
+  delete m_pipe;
 }
-void PipeNode::read_t() {
+void PipeNode::receive_t() {
   std::map<std::string, std::vector<std::vector<char>>> msgqueue;
-
-  while (m_pipe) {
-    auto bytes = m_pipe.read();
+  while (m_pipe->valid()) {
+    auto bytes = read();
     if (!bytes.empty()) {
       auto type = static_cast<pipenode::MSGTYPE>(bytes[0]);
       switch (type) {
       case pipenode::CONNECT: {
-        acceptConnect(std::string(bytes.begin() + 1, bytes.end()));
+        acceptConnect(bytes);
         break;
       }
       case pipenode::MSG: {
@@ -47,46 +49,31 @@ void PipeNode::read_t() {
   }
 }
 bool PipeNode::send(rpx::bytearray const &message) {
-
-  std::vector<char> buffer = m_framebuffer;
-  size_t chunkSize = MAXSIZE - m_framebuffer.size();
-  int chunkCount = ceil((message.size() * 1.0) / chunkSize);
-  memcpy(buffer.data() + 1 + sizeof(int), &chunkCount, sizeof(chunkCount));
-  const char *chunkBegin = message.data();
-
-  std::lock_guard<std::mutex> guard(m_lock);
-  for (int i = 0; i < chunkCount; ++i) {
-    memcpy(buffer.data() + 1, &i, sizeof(i));
-    size_t chunkLength = message.size() - i * chunkSize;
-    if (chunkLength > chunkSize)
-      chunkLength = chunkSize;
-    buffer.resize(m_framebuffer.size() + chunkLength);
-    memcpy(buffer.data() + m_framebuffer.size(), chunkBegin, chunkLength);
-    chunkBegin += chunkLength;
-    for (auto iter = m_pipes.begin(); iter != m_pipes.end();)
-      iter = !iter->write(buffer) ? m_pipes.erase(iter) : ++iter;
-  }
-  return true;
+  return write(static_cast<rpx::byte>(pipenode::MSG), message);
 }
 void PipeNode::setOnRecv(RecvCallback const &cb) {
   m_callback = cb;
 }
 bool PipeNode::connectTo(const std::string &path) {
   if (!path.empty()) {
-    std::vector<char> bytes(1 + m_pipe.path().length());
-    bytes[0] = static_cast<char>(pipenode::CONNECT);
-    memcpy(bytes.data() + 1, m_pipe.path().c_str(), m_pipe.path().length());
+    std::vector<char> bytes(BYTE_SIZE + LONG_SIZE + m_pipe->path().length());
+    auto sizeBuffer = Utils::fromSize(bytes.size());
+    char* bytesIter = bytes.data();
+    memcpy(bytesIter, sizeBuffer.data(), sizeBuffer.size());
+    bytesIter += sizeBuffer.size();
+    *bytesIter = static_cast<char>(pipenode::CONNECT);
+    memcpy(++bytesIter, m_pipe->path().c_str(), m_pipe->path().length());
 
     std::lock_guard<std::mutex> guard(m_lock);
     if (std::find_if(m_pipes.cbegin(),
                      m_pipes.cend(),
-                     [&path](Pipe const &p) {
-                       return p.path() == path;
+                     [&path](Pipe* p) {
+                       return p->path() == path;
                      })
         == m_pipes.end()) {
       Pipe pipe(path);
       if (pipe.write(bytes)) {
-        m_pipes.push_back(pipe);
+        m_pipes.push_back(new Pipe(pipe));
         return true;
       }
     } else {
@@ -95,41 +82,86 @@ bool PipeNode::connectTo(const std::string &path) {
   }
   return false;
 }
-void PipeNode::acceptConnect(std::string const &path) {
+rpx::bytearray PipeNode::createMsgHead(const std::string &path) {
+  rpx::bytearray buffer;
+  size_t pathLength = path.length();
+  buffer.resize(sizeof(std::byte) + 3 * LONG_SIZE + sizeof(pathLength) + pathLength);
+  char *iter = buffer.data() + BYTE_SIZE + 3 * LONG_SIZE;
+  memcpy(iter, &pathLength, sizeof(pathLength));
+  iter += sizeof(pathLength);
+  memcpy(iter, path.c_str(), pathLength);
+  return buffer;
+}
+rpx::bytearray PipeNode::read() {
+  rpx::bytearray buffer;
+  while (m_pipe->valid()) {
+    buffer = m_pipe->read(LONG_SIZE);
+    if (buffer.empty()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        continue;
+    }
+    unsigned long bytes = Utils::toSize(buffer) - LONG_SIZE;
+    buffer.resize(bytes);
+    buffer = m_pipe->read(bytes);
+    break;
+  }
+  return buffer;
+}
+bool PipeNode::write(rpx::byte type, const bytearray &bytes) {
+  std::vector<char> buffer = m_msghead;
+  size_t chunkSize = Pipe::MAX_MSGSIZE - m_msghead.size();
+  int chunkCount = ceil((bytes.size() * 1.0) / chunkSize);
+  const char *chunkBegin = bytes.data();
+  buffer[LONG_SIZE] = type;
+  memcpy(buffer.data() + BYTE_SIZE + 2 * LONG_SIZE, &chunkCount, sizeof(chunkCount));
+
+  std::lock_guard<std::mutex> guard(m_lock);
+  for (unsigned long i = 0; i < chunkCount; ++i) {
+    size_t chunkLength = bytes.size() - i * chunkSize;
+    if (chunkLength > chunkSize)
+      chunkLength = chunkSize;
+    buffer.resize(m_msghead.size() + chunkLength);
+    auto bufferSize = Utils::fromSize(m_msghead.size() + chunkLength);
+    memcpy(buffer.data(), bufferSize.data(), bufferSize.size());
+    memcpy(buffer.data() + BYTE_SIZE + LONG_SIZE, &i, LONG_SIZE);
+    memcpy(buffer.data() + m_msghead.size(), chunkBegin, chunkLength);
+    chunkBegin += chunkLength;
+    for (auto iter = m_pipes.begin(); iter != m_pipes.end();)
+    {
+      if(!(*iter)->write(buffer)){
+        delete *iter;
+        iter = m_pipes.erase(iter);
+      }else
+        ++iter;
+    }
+  }
+  return true;
+}
+void PipeNode::acceptConnect(std::vector<char> const&buffer) {
+  std::string path(buffer.begin() + 1, buffer.end());
   if (!path.empty()) {
     std::lock_guard<std::mutex> guard(m_lock);
     if (std::find_if(m_pipes.cbegin(),
                      m_pipes.cend(),
-                     [&path](Pipe const &p) {
-                       return p.path() == path;
+                     [&path](Pipe *p) {
+                       return p->path() == path;
                      })
         == m_pipes.end()) {
-      m_pipes.emplace_back(path);
+      m_pipes.push_back(new Pipe(path));
     }
   }
 }
-rpx::bytearray PipeNode::createFramebuffer(const std::string &path) {
-  rpx::bytearray framebuffer;
-  size_t pathLength = path.length();
-  framebuffer.resize(1 + 2 * sizeof(int) + sizeof(pathLength) + pathLength);
-  framebuffer[0] = static_cast<char>(pipenode::MSG);
-  char *framebufferIter = framebuffer.data() + 1 + 2 * sizeof(int);
-  memcpy(framebufferIter, &pathLength, sizeof(pathLength));
-  framebufferIter += sizeof(pathLength);
-  memcpy(framebufferIter, path.c_str(), pathLength);
-  return framebuffer;
-}
 bool PipeNode::acceptMessage(std::vector<char> &buffer,
                              std::map<std::string, std::vector<std::vector<char>>> &msgqueue) {
-  int index = 0, count = 0;
+  unsigned long index = 0, count = 0;
   size_t pathLength = 0;
-  auto byteIter = buffer.begin() + 1;
+  auto byteIter = buffer.begin() + BYTE_SIZE;
   memcpy(&index, &*byteIter, sizeof(index));
-  byteIter += sizeof(index);
+  byteIter += LONG_SIZE;
   memcpy(&count, &*byteIter, sizeof(count));
-  byteIter += sizeof(count);
+  byteIter += LONG_SIZE;
   memcpy(&pathLength, &*byteIter, sizeof(pathLength));
-  byteIter += sizeof(pathLength);
+  byteIter += LONG_SIZE;
   std::string pipepath(byteIter, byteIter + pathLength);
   byteIter += pathLength;
   buffer.erase(buffer.begin(), byteIter);

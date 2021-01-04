@@ -1,7 +1,6 @@
 #pragma once
 
 #include <rpx/ICommunication.h>
-#include "Pipe.h"
 
 #include <string>
 #include <map>
@@ -12,9 +11,9 @@
 
 namespace rpx::communication {
 
-class PipeNode : public ICommunication{
+class Pipe;
 
-  static constexpr size_t MAXSIZE = 4096;
+class PipeNode : public ICommunication{
 
 public:
   explicit PipeNode(std::string const &path);
@@ -25,17 +24,19 @@ public:
   void setOnRecv(RecvCallback const &cb) override;
 
 private:
-  Pipe m_pipe;
-  std::list<Pipe> m_pipes;
+  Pipe* m_pipe;
+  std::list<Pipe*> m_pipes;
   mutable std::mutex m_lock;
   std::thread *m_reader;
   RecvCallback m_callback;
-  rpx::bytearray const m_framebuffer;
+  rpx::bytearray const m_msghead;
 
-  void read_t();
-  void acceptConnect(std::string const &path);
+  void receive_t();
+  void acceptConnect(std::vector<char> const&buffer);
+  rpx::bytearray read();
+  bool write(rpx::byte type, rpx::bytearray const& bytes);
 
-  static rpx::bytearray createFramebuffer(std::string const &path);
+  static rpx::bytearray createMsgHead(std::string const &path);
   static bool acceptMessage(std::vector<char> &buffer,
                             std::map<std::string, std::vector<std::vector<char>>> &msgqueue);
 };

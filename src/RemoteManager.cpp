@@ -135,7 +135,7 @@ void RemoteManager::Result::wait(int timeout_ms) const {
 
   auto start = stopwatch::now();
   while (!m_valid && (std::chrono::duration_cast<std::chrono::milliseconds>(
-                          start - stopwatch::now())
+                          stopwatch::now() - start)
                           .count() <= timeout_ms)) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     std::this_thread::yield();
