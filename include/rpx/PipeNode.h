@@ -8,10 +8,16 @@
 #include <thread>
 #include <functional>
 #include <list>
+#include <memory>
+#include <msgpack.hpp>
 
 namespace rpx::communication {
 
+namespace pipe
+{
 class Pipe;
+class PipeMessageHandler;
+}
 
 class PipeNode : public ICommunication{
 
@@ -24,22 +30,17 @@ public:
   void setOnRecv(RecvCallback const &cb) override;
 
 private:
-  Pipe* m_pipe;
-  std::list<Pipe*> m_pipes;
+  std::unique_ptr<pipe::PipeMessageHandler> m_messageHandler;
+  std::unique_ptr<pipe::Pipe> m_pipe;
+  std::list<pipe::Pipe*> m_pipes;
   mutable std::mutex m_lock;
   std::thread *m_reader;
   RecvCallback m_callback;
-  rpx::bytearray const m_msghead;
 
   void receive_t();
-  void acceptConnect(rpx::bytearray const& buffer);
-  rpx::bytearray read();
-  bool write(rpx::byte type, rpx::bytearray const& bytes);
-
-  static rpx::bytearray createMsgHead(std::string const &path);
-  static bool acceptMessage(std::vector<char> &buffer,
-                            std::map<std::string, std::vector<std::vector<char>>> &msgqueue);
+  void acceptConnect(std::string const& path);
+  static rpx::bytearray acceptMessage(unsigned long index, unsigned long count, std::string const& path, rpx::bytearray const& content,
+                                      std::map<std::string, std::vector<std::vector<char>>> &msgqueue);
 };
 
 }
-

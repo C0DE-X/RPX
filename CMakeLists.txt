@@ -20,7 +20,7 @@ add_library(rpx SHARED
     src/PipeNode.cpp
     src/Pipe.h
     src/Pipe.cpp
-)
+    src/PipeMessageHandler.cpp src/PipeMessageHandler.h)
 
 set_target_properties(rpx PROPERTIES
     CXX_STANDARD 17

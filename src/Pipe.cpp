@@ -8,7 +8,7 @@
 #include <utility>
 #include <thread>
 
-namespace rpx::communication {
+namespace rpx::communication::pipe {
 
 int pipe_open(std::string const &path) {
   return open(path.c_str(), O_RDWR | O_NONBLOCK);

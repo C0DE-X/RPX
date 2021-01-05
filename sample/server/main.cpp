@@ -37,5 +37,6 @@ int main() {
 
   std::cin.get();
   std::cout << "Shutting down" << std::endl;
+
   return EXIT_SUCCESS;
 }
